@@ -1,5 +1,7 @@
 ### JSON to CYPHER QUERY Generator (Jypher)
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/kite-social/jypher)](https://goreportcard.com/report/github.com/kite-social/jypher)
+
 Sample JSON INPUT
 
 ```json
@@ -181,7 +183,11 @@ CREATE (tracks2:Tracks) SET tracks2.third = 'Golang', tracks2._id = '123456' MER
 CREATE (speaker:Speaker) SET speaker.name = 'Juergen Hoeller', speaker.bio = 'Juergen Hoeller is co-founder of the Spring Framework open source project.', speaker.twitter = 'https://twitter.com/springjuergen', speaker.picture = 'http://www.springio.net/wp-content/uploads/2014/11/juergen_hoeller-220x220.jpeg', speaker._id = '123456' MERGE (talk)-[:TALK_SPEAKER]->(speaker)
 ```
 
+Sample Output Graph
+
+![Graph](https://cdn.pbrd.co/images/GGrvUTv.png "Neo4j Graph")
+
 #### Todo
 
 * Create separate Node with Array of String
-*
+* Serialization of Query Generation for better Execution of Cypher
