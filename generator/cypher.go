@@ -2,7 +2,7 @@ package generator
 
 import (
 	"fmt"
-	"github.com/kite-social/jypher-old/models"
+	"github.com/kite-social/jypher/models"
 	"regexp"
 	"strings"
 )
@@ -11,53 +11,59 @@ import (
 type CypherGenerator struct{}
 
 // Generate : This method takes a graph model and generates cypher query
-func (c *CypherGenerator) Generate(models map[string]models.Graph) (cypher string) {
+func (c *CypherGenerator) Generate(models map[string]models.Graph, serial []string) (cypher string) {
 
-	for _, k := range models {
+	// loop through the serial
+	for _, term := range serial {
 
-		level := k.Nodes.Lebel
+		// search for key in the model in ascending order to generate the query
+		if k , ok := models[term]; ok {
 
-		pl := len(k.Nodes.Properties)
+			level := k.Nodes.Lebel
 
-		node := regexp.MustCompile(`[A-za-z]+`).FindAllString(strings.Title(level), -1)[0]
+			pl := len(k.Nodes.Properties)
 
-		relation := fmt.Sprintf("%s_%s", strings.ToUpper(k.Edges.Source), strings.ToUpper(node))
+			node := regexp.MustCompile(`[A-za-z]+`).FindAllString(strings.Title(level), -1)[0]
 
-		if k.Edges.Source == k.Edges.Target {
-			cypher += fmt.Sprintf("MERGE (%s:%s {id:'%s'}) ON CREATE SET ", level, node, k.Nodes.Id)
+			relation := fmt.Sprintf("%s_%s", strings.ToUpper(k.Edges.Source), strings.ToUpper(node))
 
-			for i, property := range k.Nodes.Properties {
-				for key, val := range property {
-					cypher += fmt.Sprintf("%s.%s = '%s'", k.Nodes.Lebel, key, val)
+			if k.Edges.Source == k.Edges.Target {
+				cypher += fmt.Sprintf("MERGE (%s:%s {id:'%s'}) ON CREATE SET ", level, node, k.Nodes.ID)
+
+				for i, property := range k.Nodes.Properties {
+					for key, val := range property {
+						cypher += fmt.Sprintf("%s.%s = '%s'", k.Nodes.Lebel, key, val)
+					}
+					if pl > 1 {
+						if i < pl-1 {
+							cypher += ", "
+						}
+					}
+
 				}
-				if pl > 1 {
-					if i < pl-1 {
-						cypher += ", "
+				if k.Edges.Source != k.Edges.Target { // avoids self loop
+					cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
+				}
+
+				cypher += " "
+			} else {
+
+				cypher += fmt.Sprintf("CREATE (%s:%s) SET ", level, node)
+
+				for _, property := range k.Nodes.Properties {
+					for key, val := range property {
+						cypher += fmt.Sprintf("%s.%s = '%s', ", k.Nodes.Lebel, key, val)
 					}
 				}
 
-			}
-			if k.Edges.Source != k.Edges.Target { // avoids self loop
+				// append the id to each node
+				cypher += fmt.Sprintf("%s._id = '%s' ", k.Nodes.Lebel, k.Nodes.ID)
+
 				cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
+
+				cypher += " "
 			}
 
-			cypher += " "
-		} else {
-
-			cypher += fmt.Sprintf("CREATE (%s:%s) SET ", level, node)
-
-			for _, property := range k.Nodes.Properties {
-				for key, val := range property {
-					cypher += fmt.Sprintf("%s.%s = '%s', ", k.Nodes.Lebel, key, val)
-				}
-			}
-
-			// append the id to each node
-			cypher += fmt.Sprintf("%s._id = '%s' ", k.Nodes.Lebel, k.Nodes.Id)
-
-			cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
-
-			cypher += " "
 		}
 	}
 
