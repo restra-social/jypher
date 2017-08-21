@@ -6,6 +6,7 @@ import (
 	"github.com/kite-social/jypher/generator"
 	"github.com/kite-social/jypher/models"
 	"reflect"
+	"strings"
 )
 
 var master string
@@ -19,51 +20,47 @@ func main() {
 
 	data := []byte(`
 	{
-        "id": "9f3a8f66-c58e-4f3a-8192-9c4403ffda47",
-        "identifier": [
+        "id": "0c5d2041-bed9-4451-87ee-7008286fb8ee",
+        "meta": {
+          "profile": [
+            "http://standardhealthrecord.org/fhir/StructureDefinition/shr-encounter-Encounter"
+          ]
+        },
+        "status": "finished",
+        "class": {
+          "code": "ambulatory"
+        },
+        "type": [
           {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://hl7.org/fhir/identifier-type",
-                  "code": "SB"
-                }
-              ]
-            },
-            "system": "http://hl7.org/fhir/sid/us-ssn",
-            "value": "999166684"
-          },
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://hl7.org/fhir/v2/0203",
-                  "code": "DL"
-                }
-              ]
-            },
-            "system": "urn:oid:2.16.840.1.113883.4.3.25",
-            "value": "S99956091"
+            "coding": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "424619006"
+              }
+            ],
+            "text": "Prenatal visit"
           }
         ],
-        "communication": [
-          {
-            "language": {
-              "coding": [
-                {
-                  "system": "http://hl7.org/fhir/ValueSet/languages",
-                  "code": "en-US",
-                  "display": "English (United States)"
-                }
-              ]
+        "subject": {
+          "reference": "urn:uuid:9f3a8f66-c58e-4f3a-8192-9c4403ffda47"
+        },
+        "period": {
+          "start": "2007-09-12T23:38:43+06:00",
+          "end": "2007-09-12T23:38:43+06:00"
+        },
+        "reason": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "72892002",
+              "display": "Normal pregnancy"
             }
-          }
-        ],
-        "generalPractitioner": [
-          {
-            "reference": "urn:uuid:ab9d733f-1b0a-4e12-89e4-320620e5c2eb"
-          }
-        ]
+          ]
+        },
+        "serviceProvider": {
+          "reference": "urn:uuid:ab9d733f-1b0a-4e12-89e4-320620e5c2eb"
+        },
+        "resourceType": "Encounter"
       }
 	`)
 
@@ -82,7 +79,7 @@ func main() {
 
 	graph := map[string]models.Graph{}
 
-	master = "patient"
+	master = strings.ToLower(unmarshal["resourceType"].(string))
 	id = unmarshal["id"].(string)
 
 	loop = 0
@@ -93,11 +90,11 @@ func main() {
 
 	data, _ = json.MarshalIndent(graph, " ", " ")
 
-	//fmt.Println(string(data))
+	fmt.Println(string(data))
 
 	generator := generator.CypherGenerator{}
 
-	cypher := generator.Generate(graph, parents)
+	cypher := generator.Generate(id, graph, parents)
 
 	fmt.Println(cypher)
 }
@@ -118,10 +115,12 @@ func generateGraph(id string, node string, unmarshal map[string]interface{}, gra
 		g.Edges.Target = node
 
 		parents = append(parents, node)
-		fmt.Println(parents)
+		//fmt.Println(parents)
 
-		// only the master node has the id
-		g.Nodes.ID = id
+		if master == node {
+			// only the master node has the id
+			g.Nodes.ID = id
+		}
 
 		for k, v := range unmarshal {
 
@@ -133,6 +132,16 @@ func generateGraph(id string, node string, unmarshal map[string]interface{}, gra
 				pro := map[string]interface{}{
 					k: v,
 				}
+
+				// if there exists a field called reference then
+				// there should be existing node that it is referring to
+				// so add the reference id to node id
+				if len(pro) > 0 {
+					fmt.Println(pro)
+					if ref, ok := pro["reference"]; ok {
+						g.Nodes.ID = ref.(string)
+					}
+				}
 				g.Nodes.Properties = append(g.Nodes.Properties, pro)
 
 				graph[node] = g
@@ -143,7 +152,7 @@ func generateGraph(id string, node string, unmarshal map[string]interface{}, gra
 				master = node
 				generateGraph(id, k, data, graph)
 				// loop should reset if we found any object
-				loop = 0;
+				loop = 0
 
 			case reflect.Slice:
 				slice := reflect.ValueOf(t.Interface())
@@ -169,7 +178,7 @@ func generateGraph(id string, node string, unmarshal map[string]interface{}, gra
 		}
 
 		return g
-	}else{
+	} else {
 		// If duplicate found skip the parent but process the child
 
 		//generateGraph(id, master, unmarshal, graph)

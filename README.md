@@ -191,3 +191,7 @@ Sample Output Graph
 
 * Create separate Node with Array of String
 * Serialization of Query Generation for better Execution of Cypher
+
+#### Not Supported
+
+* multiple identifier in a array list with same type of field name , right now it skips and takes only one
