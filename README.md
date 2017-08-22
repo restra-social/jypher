@@ -1,6 +1,7 @@
 ### JSON to CYPHER QUERY Generator (Jypher)
 
-[![Go Report Card](https://goreportcard.cm/badge/github.com/kite-social/jypher)](https://goreportcard.com/report/github.com/kite-social/jypher)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kite-social/jypher)](https://goreportcard.com/report/github.com/kite-social/jypher)
+
 
 # Important Components
 
@@ -415,6 +416,8 @@ MERGE (patient)-[:PATIENT_ADDRESS]->(address0)
 CREATE (maritalStatus:MaritalStatus) SET maritalStatus.text = 'Never Married', maritalStatus._id = '49c2df26-6fb9-43fb-82a2-3bd413a95934'
 MERGE (patient)-[:PATIENT_MARITALSTATUS]->(maritalStatus) CREATE (coding1:Coding) SET coding1.system = 'http://hl7.org/fhir/v3/MaritalStatus', coding1.code = 'S', coding1._id = '49c2df26-6fb9-43fb-82a2-3bd413a95934'
 MERGE (maritalStatus)-[:MARITALSTATUS_CODING]->(coding1)
+
+```
 
 Sample Output Graph
 
