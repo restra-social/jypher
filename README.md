@@ -424,7 +424,9 @@ Sample Output Graph
 
 * Create separate Node with Array of String
 * Serialization of Query Generation for better Execution of Cypher
+* Remove id field from properties of master node
 
-#### Not Supported
+
+#### Limitation
 
 * multiple identifier in a array list with same type of field name , right now it skips and takes only one
