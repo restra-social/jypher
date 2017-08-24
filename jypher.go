@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"github.com/kite-social/jypher/helper"
 )
 
 // Jypher struct
@@ -41,17 +42,19 @@ func (j *Jypher) BuildCypher() string {
 	return cypher
 }
 
-func (j *Jypher) generateGraph(node string, unmarshal map[string]interface{}, rules map[string]interface{}) map[string]models.Graph {
+func (j *Jypher) generateGraph(node string, unmarshal map[string]interface{}, rules models.Rules) map[string]models.Graph {
+
+	if rules.Rename != nil {
+		// apply rename rules before creating a node
+		nodeName := regexp.MustCompile(`[A-za-z]+`).FindAllString(node, -1)[0]
+		if name, ok := rules.Rename[nodeName]; ok {
+			node = regexp.MustCompile(`[A-za-z]+`).ReplaceAllString(node, name.(string))
+		}
+	}
 
 	// match node in the map if not exists then create
 	// if exists then skip.
 	// Added to avoid duplicate entry in the model
-
-	nodeName := regexp.MustCompile(`[A-za-z]+`).FindAllString(node, -1)[0]
-
-	if name, ok := rules[nodeName]; ok {
-		node = regexp.MustCompile(`[A-za-z]+`).ReplaceAllString(node, name.(string))
-	}
 
 	if _, ok := j.Graph[node]; !ok {
 
@@ -86,7 +89,7 @@ func (j *Jypher) generateGraph(node string, unmarshal map[string]interface{}, ru
 				// so add the reference id to node id
 				if len(pro) > 0 {
 					if ref, ok := pro["reference"]; ok {
-						g.Nodes.ID = ref.(string)
+						g.Nodes.ID = helper.IDfilter("urn", ref.(string))
 					}
 				}
 				g.Nodes.Properties = append(g.Nodes.Properties, pro)

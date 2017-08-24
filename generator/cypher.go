@@ -28,7 +28,7 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 			relation := fmt.Sprintf("%s_%s", strings.ToUpper(k.Edges.Source), strings.ToUpper(node))
 
 			if k.Nodes.ID != "" {
-				cypher += fmt.Sprintf("MERGE (%s:%s {id:'%s'}) ON CREATE SET ", level, node, k.Nodes.ID)
+				cypher += fmt.Sprintf("MERGE (%s:%s {id:'%s'}) SET ", level, node, k.Nodes.ID)
 
 				for i, property := range k.Nodes.Properties {
 					for key, val := range property {
