@@ -1,6 +1,5 @@
 package helper
 
-
 func IDfilter(ftype string, id string) string {
 
 	switch ftype {
