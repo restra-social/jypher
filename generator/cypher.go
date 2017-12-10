@@ -2,7 +2,7 @@ package generator
 
 import (
 	"fmt"
-	"github.com/kite-social/jypher/models"
+	"github.com/bhromor/jypher/models"
 	"regexp"
 	"strings"
 )
@@ -23,16 +23,19 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 
 			pl := len(k.Nodes.Properties)
 
-			node := regexp.MustCompile(`[A-za-z]+`).FindAllString(strings.Title(level), -1)[0]
+			node := regexp.MustCompile(`[A-za-z]+`).FindString(strings.Title(level))
+			source := regexp.MustCompile(`[A-za-z]+`).FindString(k.Edges.Source)
 
-			relation := fmt.Sprintf("%s_%s", strings.ToUpper(k.Edges.Source), strings.ToUpper(node))
+			relation := fmt.Sprintf("%s_%s", strings.ToUpper(source), strings.ToUpper(node))
 
 			if k.Nodes.ID != "" {
 				cypher += fmt.Sprintf("MERGE (%s:%s {id:'%s'}) SET ", level, node, k.Nodes.ID)
 
 				for i, property := range k.Nodes.Properties {
 					for key, val := range property {
-						cypher += fmt.Sprintf("%s.%s = '%s'", k.Nodes.Lebel, key, val)
+						// Using ' ' in value assignment so filter for text contains ''
+						filteredVal := regexp.MustCompile(`[-a-zA-Z:0-9]+`).FindString(val.(string))
+						cypher += fmt.Sprintf("%s.%s = '%s'", k.Nodes.Lebel, key, filteredVal)
 					}
 					if pl > 1 {
 						if i < pl-1 {
@@ -46,22 +49,61 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 				}
 
 				cypher += " "
+
 			} else {
 
-				cypher += fmt.Sprintf("CREATE (%s:%s) SET ", level, node)
+				len := len(k.Nodes.Properties)
 
-				for _, property := range k.Nodes.Properties {
-					for key, val := range property {
-						cypher += fmt.Sprintf("%s.%s = '%s', ", k.Nodes.Lebel, key, val)
+				// If property found then take them for full merge
+				if len > 0 {
+					cypher += fmt.Sprintf("MERGE (%s:%s { ", level, node)
+
+					for i, property := range k.Nodes.Properties {
+						for key, val := range property {
+							// Using ' ' in value assignment so filter for text contains ''
+							filteredVal := regexp.MustCompile(`[A-za-z]+`).FindString(val.(string))
+							cypher += fmt.Sprintf("%s:'%s'", key, filteredVal)
+
+							// skip comma for last property
+							if i != len -1 {
+								cypher += fmt.Sprint(",")
+							}
+						}
+
+						if i == len-1 {
+							cypher += fmt.Sprint(" }) ")
+						}
 					}
+
+					// append the id to each node
+					cypher += fmt.Sprintf("SET %s._id = '%s' ", k.Nodes.Lebel, id)
+
+					// Add Relation
+					cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
+
+					// Add Gap
+					cypher += " "
+
+				}else {
+
+					// for those nodes who doesn't have any properties
+					cypher += fmt.Sprintf("MERGE (%s:%s)", level, node)
+
+					/*cypher += fmt.Sprintf("MERGE (%s:%s) SET ", level, node)
+
+					for _, property := range k.Nodes.Properties {
+						for key, val := range property {
+							cypher += fmt.Sprintf("%s.%s = '%s', ", k.Nodes.Lebel, key, val)
+						}
+					}
+
+					// append the id to each node
+					cypher += fmt.Sprintf("%s._id = '%s' ", k.Nodes.Lebel, id)*/
+
+					cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
+
+					cypher += " "
 				}
-
-				// append the id to each node
-				cypher += fmt.Sprintf("%s._id = '%s' ", k.Nodes.Lebel, id)
-
-				cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
-
-				cypher += " "
 			}
 
 		}
@@ -69,3 +111,8 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 
 	return cypher
 }
+
+
+// #todo #fix
+// fix MERGE (patient:Patient {id:'34876259-35cd-497c-a932-94baaaeb555c'}) SET patient.reference = 'urn:uuid:34876259-35cd-497c-a932-94baaaeb555c'
+// fix

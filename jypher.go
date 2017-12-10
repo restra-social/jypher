@@ -2,9 +2,9 @@ package jypher
 
 import (
 	"fmt"
-	"github.com/kite-social/jypher/generator"
-	"github.com/kite-social/jypher/helper"
-	"github.com/kite-social/jypher/models"
+	"github.com/bhromor/jypher/generator"
+	"github.com/bhromor/jypher/helper"
+	"github.com/bhromor/jypher/models"
 	"reflect"
 	"regexp"
 	"strings"
@@ -98,7 +98,7 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 					g.Nodes.Properties = append(g.Nodes.Properties, pro)
 
 					// If nodeName coding then set code value to ID
-					if nodeName == "coding" && field == "code"  {
+					if nodeName == "coding" && field == "code" {
 						g.Nodes.ID = value.(string)
 					}
 
@@ -137,7 +137,7 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 
 			//generateGraph(id, master, unmarshal, graph)
 		}
-	}else{
+	} else {
 		fmt.Sprintf("Skipping %s", nodeName)
 	}
 
