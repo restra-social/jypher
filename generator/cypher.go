@@ -20,13 +20,23 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 		if k, ok := models[term]; ok {
 
 			level := k.Nodes.Lebel
+			nodeRelName := regexp.MustCompile(`[A-Za-z]+`).FindString(level)
+
+			// Filter Special Label like type which is similar to many resource but has different meaning
+			// like Organization Type is different than Claim Type
+
+			if strings.HasPrefix(level, "type") {
+				// append source
+				level = fmt.Sprintf("%s%s", k.Edges.Source, level)
+			}
 
 			pl := len(k.Nodes.Properties)
 
-			node := regexp.MustCompile(`[A-za-z]+`).FindString(strings.Title(level))
-			source := regexp.MustCompile(`[A-za-z]+`).FindString(k.Edges.Source)
+			node := regexp.MustCompile(`[A-Za-z]+`).FindString(strings.Title(level))
+			source := regexp.MustCompile(`[A-Za-z]+`).FindString(k.Edges.Source)
 
-			relation := fmt.Sprintf("%s_%s", strings.ToUpper(source), strings.ToUpper(node))
+
+			relation := fmt.Sprintf("%s_%s", strings.ToUpper(source), strings.ToUpper(nodeRelName))
 
 			if k.Nodes.ID != "" {
 				cypher += fmt.Sprintf("MERGE (%s:%s {id:'%s'}) SET ", level, node, k.Nodes.ID)
@@ -34,7 +44,7 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 				for i, property := range k.Nodes.Properties {
 					for key, val := range property {
 						// Using ' ' in value assignment so filter for text contains ''
-						filteredVal := regexp.MustCompile(`[-a-zA-Z:0-9]+`).FindString(val.(string))
+						filteredVal := strings.Replace(val.(string), "'", "", -1)
 						cypher += fmt.Sprintf("%s.%s = '%s'", k.Nodes.Lebel, key, filteredVal)
 					}
 					if pl > 1 {
@@ -45,23 +55,26 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 
 				}
 				if k.Edges.Source != k.Edges.Target { // avoids self loop
-					cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
+					cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, level)
 				}
 
 				cypher += " "
 
 			} else {
 
+				node := regexp.MustCompile(`[A-Za-z]+`).FindString(strings.Title(level))
+
 				len := len(k.Nodes.Properties)
 
 				// If property found then take them for full merge
 				if len > 0 {
+
 					cypher += fmt.Sprintf("MERGE (%s:%s { ", level, node)
 
 					for i, property := range k.Nodes.Properties {
 						for key, val := range property {
 							// Using ' ' in value assignment so filter for text contains ''
-							filteredVal := regexp.MustCompile(`[A-za-z]+`).FindString(val.(string))
+							filteredVal := strings.Replace(val.(string), "'", "", -1)
 							cypher += fmt.Sprintf("%s:'%s'", key, filteredVal)
 
 							// skip comma for last property
@@ -76,10 +89,10 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 					}
 
 					// append the id to each node
-					cypher += fmt.Sprintf("SET %s._id = '%s' ", k.Nodes.Lebel, id)
+					cypher += fmt.Sprintf("SET %s._id = '%s' ", level, id)
 
 					// Add Relation
-					cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, k.Edges.Target)
+					cypher += fmt.Sprintf("MERGE (%s)-[:%s]->(%s)", k.Edges.Source, relation, level)
 
 					// Add Gap
 					cypher += " "

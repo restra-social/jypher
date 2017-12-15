@@ -65,7 +65,13 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 			var g models.Graph
 			g.Nodes.Lebel = node
 
-			g.Edges.Source = j.Master
+			if strings.HasPrefix(j.Master, "type") {
+				g.Edges.Source =  fmt.Sprintf("%s%s", j.Tree[0],  j.Master)
+			}else{
+				g.Edges.Source = j.Master
+			}
+
+
 			g.Edges.Target = node
 
 			j.Tree = append(j.Tree, node)
