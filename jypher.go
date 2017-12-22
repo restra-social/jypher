@@ -2,9 +2,9 @@ package jypher
 
 import (
 	"fmt"
-	"github.com/bhromor/jypher/generator"
-	"github.com/bhromor/jypher/helper"
-	"github.com/bhromor/jypher/models"
+	"github.com/restra-social/jypher/generator"
+	"github.com/restra-social/jypher/helper"
+	"github.com/restra-social/jypher/models"
 	"reflect"
 	"regexp"
 	"strings"
@@ -66,11 +66,10 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 			g.Nodes.Lebel = node
 
 			if strings.HasPrefix(j.Master, "type") {
-				g.Edges.Source =  fmt.Sprintf("%s%s", j.Tree[0],  j.Master)
-			}else{
+				g.Edges.Source = fmt.Sprintf("%s%s", j.Tree[0], j.Master)
+			} else {
 				g.Edges.Source = j.Master
 			}
-
 
 			g.Edges.Target = node
 

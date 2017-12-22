@@ -2,7 +2,7 @@ package generator
 
 import (
 	"fmt"
-	"github.com/bhromor/jypher/models"
+	"github.com/restra-social/jypher/models"
 	"regexp"
 	"strings"
 )
@@ -34,7 +34,6 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 
 			node := regexp.MustCompile(`[A-Za-z]+`).FindString(strings.Title(level))
 			source := regexp.MustCompile(`[A-Za-z]+`).FindString(k.Edges.Source)
-
 
 			relation := fmt.Sprintf("%s_%s", strings.ToUpper(source), strings.ToUpper(nodeRelName))
 
@@ -78,7 +77,7 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 							cypher += fmt.Sprintf("%s:'%s'", key, filteredVal)
 
 							// skip comma for last property
-							if i != len -1 {
+							if i != len-1 {
 								cypher += fmt.Sprint(",")
 							}
 						}
@@ -97,7 +96,7 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 					// Add Gap
 					cypher += " "
 
-				}else {
+				} else {
 
 					// for those nodes who doesn't have any properties
 					cypher += fmt.Sprintf("MERGE (%s:%s)", level, node)
@@ -124,7 +123,6 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 
 	return cypher
 }
-
 
 // #todo #fix
 // fix MERGE (patient:Patient {id:'34876259-35cd-497c-a932-94baaaeb555c'}) SET patient.reference = 'urn:uuid:34876259-35cd-497c-a932-94baaaeb555c'

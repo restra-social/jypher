@@ -1,6 +1,6 @@
 package rules
 
-import "github.com/bhromor/jypher/models"
+import "github.com/restra-social/jypher/models"
 
 func FHIRRules() map[string]models.Rules {
 
