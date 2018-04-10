@@ -5,6 +5,10 @@ import "github.com/restra-social/jypher/models"
 func FHIRRules() map[string]models.Rules {
 
 	return map[string]models.Rules{
+
+		"Menu": models.Rules{
+			Connections: []string{"Restaurant#r_id"},
+		},
 		"Patient": models.Rules{
 			Rename: map[string]interface{}{},
 		},

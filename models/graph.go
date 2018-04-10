@@ -24,6 +24,7 @@ type Edges struct {
 // Rules : Set of rules used during graph creation
 type Rules struct {
 	Rename map[string]interface{}
+	Connections []string
 	Type   string
 }
 

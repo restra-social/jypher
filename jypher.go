@@ -16,8 +16,8 @@ type Jypher struct {
 	GraphObj models.JSONInfo
 	ID       string
 	Tree     []string
-
-	Master       string
+	MainNode string
+	NodeHead       string
 	ObjIteration int
 }
 
@@ -25,11 +25,40 @@ type Jypher struct {
 func (j *Jypher) GetJypher(jsonInfo *models.JSONInfo) map[string]models.Graph {
 
 	j.Graph = map[string]models.Graph{}
-	j.Master = strings.ToLower(jsonInfo.Master)
+	j.NodeHead = strings.ToLower(jsonInfo.Master)
 	j.ID = jsonInfo.ID
 	j.ObjIteration = 0
+	j.MainNode = jsonInfo.Master
+	j.generateGraph(j.NodeHead, jsonInfo.DecodedJSON, jsonInfo.Rules)
 
-	j.generateGraph(j.Master, jsonInfo.DecodedJSON, jsonInfo.Rules)
+	// Append Rules Connection Nodes
+
+	if len(jsonInfo.Rules.Connections) > 0 {
+		for _, connectTo := range jsonInfo.Rules.Connections {
+
+			sp := strings.Split(connectTo, "#")
+			connectNode := sp[0]
+			key := sp[1]
+
+			var conn models.Graph
+			conn.Nodes = models.Node{
+				ID:    jsonInfo.DecodedJSON[key].(string),
+				Lebel: connectNode,
+			}
+
+			conn.Edges = models.Edges{
+				Source:   j.MainNode,
+				Target:   connectNode,
+				Relation: "l",
+			}
+
+			cn := strings.ToLower(connectNode)
+			j.Graph[cn] = conn
+
+			j.Tree = append(j.Tree, cn)
+
+		}
+	}
 
 	return j.Graph
 }
@@ -65,10 +94,10 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 			var g models.Graph
 			g.Nodes.Lebel = node
 
-			if strings.HasPrefix(j.Master, "type") {
-				g.Edges.Source = fmt.Sprintf("%s%s", j.Tree[0], j.Master)
+			if strings.HasPrefix(j.NodeHead, "type") {
+				g.Edges.Source = fmt.Sprintf("%s%s", j.Tree[0], j.NodeHead)
 			} else {
-				g.Edges.Source = j.Master
+				g.Edges.Source = j.NodeHead
 			}
 
 			g.Edges.Target = node
@@ -76,7 +105,7 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 			j.Tree = append(j.Tree, node)
 			//fmt.Println(parents)
 
-			if j.Master == node {
+			if j.NodeHead == node {
 				// only the master node has the id
 				g.Nodes.ID = j.ID
 			}
@@ -112,7 +141,7 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 				case reflect.Map:
 					data, _ = fieldValue.Interface().(map[string]interface{})
 
-					j.Master = node
+					j.NodeHead = node
 					j.generateGraph(field, data, rules)
 					// loop should reset if we found any object
 					j.ObjIteration = 0
@@ -128,7 +157,7 @@ func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, 
 
 						case reflect.Map:
 							data, _ = slice.Index(i).Interface().(map[string]interface{})
-							j.Master = node
+							j.NodeHead = node
 							j.generateGraph(fmt.Sprintf("%s%d", field, j.ObjIteration), data, rules)
 							j.ObjIteration++
 						}
