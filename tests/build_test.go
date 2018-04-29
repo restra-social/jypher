@@ -15,110 +15,117 @@ func TestBuildCypher(t *testing.T) {
 
 	data := []byte(`
 {
-  "id": "3592646984",
-  "type": "menu",
-  "foods": [
+  "title": "The New KFC",
+  "type": "restaurant",
+  "social": {
+    "email": "fahm",
+    "website": "sitom",
+    "facebook": "",
+    "phone": "01256983"
+  },
+  "picture": {
+    "logo": "logo",
+    "cover": "cover"
+  },
+  "cuisine": [
     {
-      "display": "Burger",
-      "code": 112,
-      "title": "Special Hot Sauge Burger",
-      "tags": [
-        "",
-        ""
-      ],
-      "items": [
-        {
-          "display": "Restaurant Unique Name",
-          "code": 123,
-          "offers": [
-            {
-              "display": "Buy One Get One",
-              "code": 12
-            }
-          ],
-          "serial": 1,
-          "description": "some des",
-          "consumable": {
-            "display": "1/3",
-            "code": 5
-          },
-          "ingredients": [
-            {
-              "display": "Bread",
-              "code": 85
-            }
-          ],
-          "cuisine": [
-            {
-              "display": "Thai",
-              "code": 23
-            }
-          ],
-          "size": [
-            {
-              "display": "Small",
-              "code": 4
-            },
-            {
-              "display": "Medium",
-              "code": 4
-            }
-          ],
-          "price": 45
-        }
-      ]
+      "code": 12,
+      "display": "Italian"
+    }
+  ],
+  "tags": ["party", "birthdy", "treat"],
+  "delivery": {
+    "status": false,
+    "area": [
+      {
+        "code": 1,
+        "display": "Modhubag",
+        "charge": 45
+      }
+    ]
+  },
+  "address": {
+    "division": {
+      "code": 25,
+      "display": "Dhaka"
+    },
+    "district": {
+      "code": 1,
+      "display": "Dhaka Zila"
+    },
+    "area": {
+      "code": 1,
+      "display": "Banani"
+    },
+    "postal": 1210,
+    "street": "Houde",
+    "longitude": 28.02525525,
+    "latitude": 58.32656996
+  },
+  "description": "Some description about this restaurant ..... ",
+  "additional": [
+    {
+      "display": "wifi",
+      "code": 1
     },
     {
-      "display": "Chowmin",
-      "code": 189,
-      "title": "Pasta & Chowmin",
-      "tags": [
-        "",
-        ""
-      ],
-      "items": [
-        {
-          "display": "Restaurant Unique Name",
-          "code": 125,
-          "offers": [
-            {
-              "display": "Buy One Get Half",
-              "code": 120
-            }
-          ],
-          "serial": 1,
-          "description": "some des",
-          "consumable": {
-            "display": "1/3",
-            "code": 50
-          },
-          "ingredients": [
-            {
-              "display": "Pasta",
-              "code": 850
-            }
-          ],
-          "cuisine": [
-            {
-              "display": "Chines",
-              "code": 230
-            }
-          ],
-          "size": [
-            {
-              "display": "Small",
-              "code": 4
-            },
-            {
-              "display": "Medium",
-              "code": 4
-            }
-          ],
-          "price": 450
-        }
-      ]
+      "display": "smoking",
+      "code": 2
+    },
+    {
+      "display": "restaurant",
+      "code": 3
+    },
+    {
+      "display": "pub",
+      "code": 4
+    },
+    {
+      "display": "fuck",
+      "code": 5
     }
-  ]
+  ],
+  "rating": {
+    "quality": 0,
+    "service": 0,
+    "value": 2,
+    "place": 0
+  },
+  "time": {
+    "saturday": {
+      "open": "time",
+      "close": "time"
+    },
+    "sunday": {
+      "open": "time",
+      "close": "time"
+    },
+    "monday": {
+      "open": "time",
+      "close": "time"
+    },
+    "tuesday" : {
+      "open": "time",
+      "close": "time"
+    },
+    "wednesday": {
+      "open": "time",
+      "close": "time"
+    },
+    "thursday": {
+      "open": "time",
+      "close": "time"
+    },
+    "friday": {
+      "open": "time",
+      "close": "time"
+    }
+  },
+  "items": 59,
+  "verified": true,
+  "status": "pending",
+  "created_at": "2013",
+  "updated_at": "2016"
 }
 
 
@@ -150,13 +157,13 @@ func getRules(resource string, rules map[string]models.Rules) models.Rules {
 
 func buildandExecuteCypher(data map[string]interface{}, conn bolt.Conn) string {
 
-	resource := "Menu"
+	resource := "Restaurant"
 
 	jsonInfo := models.JSONInfo{
 		DecodedJSON: data,
 		Rules:       getRules(resource, rules2.FHIRRules()),
 		Master:      strings.ToLower(resource),
-		ID:          "men-id",
+		ID:          "res-id",
 	}
 
 	j := J.Jypher{}

@@ -3,7 +3,6 @@ package jypher
 import (
 	"fmt"
 	"github.com/restra-social/jypher/generator"
-	"github.com/restra-social/jypher/helper"
 	"github.com/restra-social/jypher/models"
 	"reflect"
 	"regexp"
@@ -103,16 +102,8 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 				pro := map[string]interface{}{
 					field: val,
 				}
-				// if there exists a field called reference then
-				// there should be existing node that it is referring to
-				// so add the reference id to node id
-				if len(pro) > 0 {
-					if ref, ok := pro["reference"]; ok {
-						g.Nodes.ID = helper.IDfilter("urn", ref.(string))
-					}
-				}
-				g.Nodes.Properties = append(g.Nodes.Properties, pro)
 
+				g.Nodes.Properties = append(g.Nodes.Properties, pro)
 				// If nodeName coding then set code value to ID
 				if field == IdentifierField {
 					g.Nodes.ID = val
@@ -122,8 +113,11 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 
 			case reflect.Map:
 				data, _ = fieldValue.Interface().(map[string]interface{})
-				j.generateGraph(currentNode, data, rules, decodedGraph)
-				// loop should reset if we found any objectz
+				entityInfo := models.EntityInfo{
+					Name: field,
+				}
+				j.generateGraph(entityInfo, data, rules, decodedGraph)
+				// loop should reset if we found any object
 				j.ObjIteration = 0
 
 			case reflect.Slice:
@@ -140,7 +134,7 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 
 					case reflect.Map:
 						data, _ = object.(map[string]interface{})
-						id := fmt.Sprintf("%d", int(data["code"].(float64)))
+						id := fmt.Sprintf("%d", int(data[IdentifierField].(float64)))
 						entityInfo := models.EntityInfo{
 							Name: fmt.Sprintf("%s%d", field, j.ObjIteration),
 							ID: id,
