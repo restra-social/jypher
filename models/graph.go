@@ -6,6 +6,11 @@ type Graph struct {
 	Edges Edges `json:"edges,omitempty"`
 }
 
+type EntityInfo struct {
+	Name string
+	ID   string
+}
+
 // Node Struct
 type Node struct {
 	ID         string                   `json:"id,omitempty"`
@@ -15,7 +20,7 @@ type Node struct {
 
 // Edges Struct
 type Edges struct {
-	Source     string                   `json:"source,omitempty"`
+	Source     EntityInfo              `json:"source,omitempty"`
 	Target     string                   `json:"target,omitempty"`
 	Relation   string                   `json:"relation,omitempty"`
 	Properties []map[string]interface{} `json:"properties,omitempty"`
@@ -23,9 +28,10 @@ type Edges struct {
 
 // Rules : Set of rules used during graph creation
 type Rules struct {
-	Rename map[string]interface{}
+	Rename      map[string]interface{}
+	SkipField []string
 	Connections []string
-	Type   string
+	Type        string
 }
 
 type JypherRules struct {

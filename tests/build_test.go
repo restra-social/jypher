@@ -1,52 +1,128 @@
 package tests
 
 import (
-	"testing"
-	"github.com/restra-social/jypher/models"
-	"strings"
 	J "github.com/restra-social/jypher"
+	"github.com/restra-social/jypher/models"
 	rules2 "github.com/restra-social/jypher/rules"
-
+	bolt "github.com/johnnadratowski/golang-neo4j-bolt-driver"
+	"strings"
+	"testing"
 	"encoding/json"
+	"fmt"
 )
 
 func TestBuildCypher(t *testing.T) {
 
 	data := []byte(`
 {
+  "id": "3592646984",
+  "type": "menu",
   "foods": [
     {
+      "display": "Burger",
+      "code": 112,
+      "title": "Special Hot Sauge Burger",
+      "tags": [
+        "",
+        ""
+      ],
       "items": [
         {
-          "cuisine": "Desserts",
-          "description": "Soft, moist, fuzzy chocolaty almond Brownie garnished with chewy chocolate syrap",
-          "price": 130,
-          "name": "Brownie ",
-          "consumable": "1/1"
-        },
-        {
-          "cuisine": "Desserts",
-          "description": "Soft, moist, fuzzy chocolaty almond Brownie served hot loaded with a scoope of vanilla icecream  and garnished with chocolate syrap served on sizzling plate",
-          "price": 335,
-          "name": "Sizzling Brownie ",
-          "consumable": "1/1"
+          "display": "Restaurant Unique Name",
+          "code": 123,
+          "offers": [
+            {
+              "display": "Buy One Get One",
+              "code": 12
+            }
+          ],
+          "serial": 1,
+          "description": "some des",
+          "consumable": {
+            "display": "1/3",
+            "code": 5
+          },
+          "ingredients": [
+            {
+              "display": "Bread",
+              "code": 85
+            }
+          ],
+          "cuisine": [
+            {
+              "display": "Thai",
+              "code": 23
+            }
+          ],
+          "size": [
+            {
+              "display": "Small",
+              "code": 4
+            },
+            {
+              "display": "Medium",
+              "code": 4
+            }
+          ],
+          "price": 45
         }
-      ],
-      "code": 68,
-      "title": "Sweet sin",
+      ]
+    },
+    {
+      "display": "Chowmin",
+      "code": 189,
+      "title": "Pasta & Chowmin",
       "tags": [
-        "ice",
-        "fried"
+        "",
+        ""
       ],
-      "display": "Sweet"
+      "items": [
+        {
+          "display": "Restaurant Unique Name",
+          "code": 125,
+          "offers": [
+            {
+              "display": "Buy One Get Half",
+              "code": 120
+            }
+          ],
+          "serial": 1,
+          "description": "some des",
+          "consumable": {
+            "display": "1/3",
+            "code": 50
+          },
+          "ingredients": [
+            {
+              "display": "Pasta",
+              "code": 850
+            }
+          ],
+          "cuisine": [
+            {
+              "display": "Chines",
+              "code": 230
+            }
+          ],
+          "size": [
+            {
+              "display": "Small",
+              "code": 4
+            },
+            {
+              "display": "Medium",
+              "code": 4
+            }
+          ],
+          "price": 450
+        }
+      ]
     }
-  ],
-  "type": "menu",
-  "r_id": "SMCBMU"
+  ]
 }
 
+
 	`)
-	resource := "Menu"
 
 	var unm map[string]interface{}
 
@@ -55,27 +131,10 @@ func TestBuildCypher(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	jsonInfo := models.JSONInfo{
-		DecodedJSON: unm,
-		Rules:       getRules(resource, rules2.FHIRRules()),
-		Master:      strings.ToLower(resource),
-		ID:          "BG1OLE",
-	}
+	conn := getGraphConnection("localhost")
 
-	j := J.Jypher{}
-	j.GetJypher(&jsonInfo)
-
-	//fmt.Println(graph)
-
-	//data, _ := json.MarshalIndent(graph, " ", " ")
-
-	//fmt.Println(string(data))
-
-	cypher := j.BuildCypher()
-
-	t.Log(cypher)
+	buildandExecuteCypher(unm, conn)
 }
-
 
 func getRules(resource string, rules map[string]models.Rules) models.Rules {
 	if rule, ok := rules[resource]; ok {
@@ -86,4 +145,52 @@ func getRules(resource string, rules map[string]models.Rules) models.Rules {
 	}
 
 	return models.Rules{}
+}
+
+
+func buildandExecuteCypher(data map[string]interface{}, conn bolt.Conn) string {
+
+	resource := "Menu"
+
+	jsonInfo := models.JSONInfo{
+		DecodedJSON: data,
+		Rules:       getRules(resource, rules2.FHIRRules()),
+		Master:      strings.ToLower(resource),
+		ID:          "men-id",
+	}
+
+	j := J.Jypher{}
+	decodedGraph := j.GetJypher(jsonInfo)
+
+	//fmt.Println(graph)
+
+	//data, _ := json.MarshalIndent(graph, " ", " ")
+
+	//fmt.Println(string(data))
+
+	cypher := j.BuildCypher(decodedGraph)
+
+	for _, v := range cypher {
+
+		// Start by creating a node
+		fmt.Println(v)
+		result, err := conn.ExecNeo(v, nil)
+		if err != nil {
+			panic(err.Error())
+		}
+		numResult, _ := result.RowsAffected()
+		fmt.Println("CREATED ROWS: ", numResult, "\n") // CREATED ROWS: 2 (per each iteration)
+
+	}
+
+	return "DONE" // CREATED ROWS: 1
+}
+
+func getGraphConnection(ip string) bolt.Conn{
+
+	driver := bolt.NewDriver()
+	conn, _ := driver.OpenNeo(fmt.Sprintf("bolt://neo4j:123456789@%s:7687", ip))
+	//defer conn.Close()
+
+	return conn
 }

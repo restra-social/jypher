@@ -10,170 +10,148 @@ import (
 	"strings"
 )
 
+const (
+	IdentifierField = "code"
+)
+
 // Jypher struct
 type Jypher struct {
-	Graph    map[string]models.Graph
-	GraphObj models.JSONInfo
-	ID       string
-	Tree     []string
-	MainNode string
-	NodeHead       string
+	Tree         []string
+	MainNode     string
+	ParentNode   models.EntityInfo
 	ObjIteration int
 }
 
 // GetJypher build Object , Init method mostly
-func (j *Jypher) GetJypher(jsonInfo *models.JSONInfo) map[string]models.Graph {
+func (j *Jypher) GetJypher(jsonInfo models.JSONInfo) map[string]models.Graph {
+	decodedGraph := map[string]models.Graph{}
 
-	j.Graph = map[string]models.Graph{}
-	j.NodeHead = strings.ToLower(jsonInfo.Master)
-	j.ID = jsonInfo.ID
+	j.ParentNode = models.EntityInfo{
+		Name: jsonInfo.Master,
+		ID:   jsonInfo.ID,
+	}
 	j.ObjIteration = 0
 	j.MainNode = jsonInfo.Master
-	j.generateGraph(j.NodeHead, jsonInfo.DecodedJSON, jsonInfo.Rules)
 
-	// Append Rules Connection Nodes
+	j.generateGraph(j.ParentNode, jsonInfo.DecodedJSON, jsonInfo.Rules, decodedGraph)
 
-	if len(jsonInfo.Rules.Connections) > 0 {
-		for _, connectTo := range jsonInfo.Rules.Connections {
-
-			sp := strings.Split(connectTo, "#")
-			connectNode := sp[0]
-			key := sp[1]
-
-			var conn models.Graph
-			conn.Nodes = models.Node{
-				ID:    jsonInfo.DecodedJSON[key].(string),
-				Lebel: connectNode,
-			}
-
-			conn.Edges = models.Edges{
-				Source:   j.MainNode,
-				Target:   connectNode,
-				Relation: "l",
-			}
-
-			cn := strings.ToLower(connectNode)
-			j.Graph[cn] = conn
-
-			j.Tree = append(j.Tree, cn)
-
-		}
-	}
-
-	return j.Graph
+	return decodedGraph
 }
 
 // BuildCypher : Builds Cypher Query based on Graph Object
-func (j *Jypher) BuildCypher() string {
+func (j *Jypher) BuildCypher(decodedGraph map[string]models.Graph) []string {
 
 	generator := generator.CypherGenerator{}
-	cypher := generator.Generate(j.ID, j.Graph, j.Tree)
+	cypher := generator.Generate(j.ParentNode.ID, decodedGraph, j.Tree)
 	return cypher
 }
 
-func (j *Jypher) generateGraph(node string, decodedJSON map[string]interface{}, rules models.Rules) map[string]models.Graph {
+func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[string]interface{}, rules models.Rules, decodedGraph map[string]models.Graph) {
 
-	nodeName := regexp.MustCompile(`[A-za-z]+`).FindAllString(node, -1)[0]
+	nodeName := regexp.MustCompile(`[A-za-z]+`).FindAllString(currentNode.Name, -1)[0]
 
 	if rules.Rename != nil {
 		// apply rename rules before creating a node
 		if name, ok := rules.Rename[nodeName]; ok {
-			node = regexp.MustCompile(`[A-za-z]+`).ReplaceAllString(node, name.(string))
+			currentNode.Name = regexp.MustCompile(`[A-za-z]+`).ReplaceAllString(currentNode.Name, name.(string))
 		}
 	}
 
-	// match node in the map if not exists then create
-	// if exists then skip.
-	// Added to avoid duplicate entry in the model
-	// Also Skip Meta and Text field
-	if nodeName != "meta" && nodeName != "text" && nodeName != "extension" {
-		if _, ok := j.Graph[node]; !ok {
+	if _, ok := decodedGraph[currentNode.Name]; !ok {
 
-			j.Graph[node] = models.Graph{}
+		var g models.Graph
+		g.Nodes.Lebel = currentNode.Name
 
-			var g models.Graph
-			g.Nodes.Lebel = node
+		if strings.HasPrefix(j.ParentNode.Name, "type") {
+			g.Edges.Source = models.EntityInfo{
+				Name: fmt.Sprintf("%s%s", j.Tree[0], j.ParentNode.Name),
+				ID:   j.ParentNode.ID,
+			}
+		} else {
+			g.Edges.Source = models.EntityInfo{
+				ID:   j.ParentNode.ID,
+				Name: j.ParentNode.Name,
+			}
+		}
 
-			if strings.HasPrefix(j.NodeHead, "type") {
-				g.Edges.Source = fmt.Sprintf("%s%s", j.Tree[0], j.NodeHead)
-			} else {
-				g.Edges.Source = j.NodeHead
+		g.Edges.Target = currentNode.Name
+
+		j.Tree = append(j.Tree, currentNode.Name)
+		//fmt.Println(parents)
+
+		if j.ParentNode.Name == currentNode.Name {
+			// only the master node has the id
+			g.Nodes.ID = j.ParentNode.ID
+		}
+
+		for field, value := range decodedJSON {
+
+			var val string
+			switch value.(type) {
+			case string:
+				val = value.(string)
+			case float64:
+				val = fmt.Sprintf("%d", int(value.(float64)))
 			}
 
-			g.Edges.Target = node
+			var data map[string]interface{}
 
-			j.Tree = append(j.Tree, node)
-			//fmt.Println(parents)
+			fieldValue := reflect.ValueOf(value)
 
-			if j.NodeHead == node {
-				// only the master node has the id
-				g.Nodes.ID = j.ID
-			}
-
-			for field, value := range decodedJSON {
-
-				var data map[string]interface{}
-
-				fieldValue := reflect.ValueOf(value)
-
-				switch fieldValue.Kind() {
-				case reflect.String:
-					pro := map[string]interface{}{
-						field: value,
-					}
-					// if there exists a field called reference then
-					// there should be existing node that it is referring to
-					// so add the reference id to node id
-					if len(pro) > 0 {
-						if ref, ok := pro["reference"]; ok {
-							g.Nodes.ID = helper.IDfilter("urn", ref.(string))
-						}
-					}
-					g.Nodes.Properties = append(g.Nodes.Properties, pro)
-
-					// If nodeName coding then set code value to ID
-					if nodeName == "coding" && field == "code" {
-						g.Nodes.ID = value.(string)
-					}
-
-					j.Graph[node] = g
-
-				case reflect.Map:
-					data, _ = fieldValue.Interface().(map[string]interface{})
-
-					j.NodeHead = node
-					j.generateGraph(field, data, rules)
-					// loop should reset if we found any object
-					j.ObjIteration = 0
-
-				case reflect.Slice:
-					slice := reflect.ValueOf(fieldValue.Interface())
-					length := slice.Len()
-					for i := 0; i < length; i++ {
-						val := reflect.ValueOf(slice.Index(i).Interface())
-						switch val.Kind() {
-						case reflect.String:
-							// make a saperate node with array of string !! #todo
-
-						case reflect.Map:
-							data, _ = slice.Index(i).Interface().(map[string]interface{})
-							j.NodeHead = node
-							j.generateGraph(fmt.Sprintf("%s%d", field, j.ObjIteration), data, rules)
-							j.ObjIteration++
-						}
+			switch fieldValue.Kind() {
+			case reflect.String, reflect.Float64:
+				pro := map[string]interface{}{
+					field: val,
+				}
+				// if there exists a field called reference then
+				// there should be existing node that it is referring to
+				// so add the reference id to node id
+				if len(pro) > 0 {
+					if ref, ok := pro["reference"]; ok {
+						g.Nodes.ID = helper.IDfilter("urn", ref.(string))
 					}
 				}
-				j.Graph[node] = g
+				g.Nodes.Properties = append(g.Nodes.Properties, pro)
+
+				// If nodeName coding then set code value to ID
+				if field == IdentifierField {
+					g.Nodes.ID = val
+				}
+
+				decodedGraph[currentNode.Name] = g
+
+			case reflect.Map:
+				data, _ = fieldValue.Interface().(map[string]interface{})
+				j.generateGraph(currentNode, data, rules, decodedGraph)
+				// loop should reset if we found any objectz
+				j.ObjIteration = 0
+
+			case reflect.Slice:
+				slice := reflect.ValueOf(fieldValue.Interface())
+				length := slice.Len()
+				j.ParentNode = currentNode
+
+				for i := 0; i < length; i++ {
+					object := slice.Index(i).Interface()
+					val := reflect.ValueOf(object)
+					switch val.Kind() {
+					case reflect.String:
+						// make a saperate node with array of string !! #todo
+
+					case reflect.Map:
+						data, _ = object.(map[string]interface{})
+						id := fmt.Sprintf("%d", int(data["code"].(float64)))
+						entityInfo := models.EntityInfo{
+							Name: fmt.Sprintf("%s%d", field, j.ObjIteration),
+							ID: id,
+						}
+						j.ParentNode = currentNode
+						j.generateGraph(entityInfo, data, rules, decodedGraph)
+						j.ObjIteration++
+					}
+				}
 			}
-
-		} else {
-			// If duplicate found skip the parent but process the child #todo
-
-			//generateGraph(id, master, unmarshal, graph)
+			decodedGraph[currentNode.Name] = g
 		}
-	} else {
-		fmt.Sprintf("Skipping %s", nodeName)
 	}
-
-	return j.Graph
 }
