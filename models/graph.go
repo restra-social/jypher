@@ -46,6 +46,4 @@ type JypherRules struct {
 type JSONInfo struct {
 	DecodedJSON map[string]interface{}
 	Rules       Rules
-	ID          string
-	Master      string
 }

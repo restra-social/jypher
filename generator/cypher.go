@@ -45,9 +45,17 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 				for i, property := range k.Nodes.Properties {
 					for key, val := range property {
 
-						// Using ' ' in value assignment so filter for text contains ''
-						filteredVal := strings.Replace(val.(string), "'", "", -1)
-						cypher += fmt.Sprintf("%s.%s = '%s'", k.Nodes.Lebel, key, filteredVal)
+						switch val.(type) {
+						case string:
+							// Using ' ' in value assignment so filter for text contains ''
+							filteredVal := strings.Replace(val.(string), "'", "", -1)
+							cypher += fmt.Sprintf("%s.%s = '%s'", k.Nodes.Lebel, key, filteredVal)
+						case float64:
+							cypher += fmt.Sprintf("%s.%s = %d", k.Nodes.Lebel, key, int(val.(float64)))
+						case bool:
+							cypher += fmt.Sprintf("%s.%s = %v", k.Nodes.Lebel, key, val.(bool))
+						}
+
 					}
 					if pl > 1 {
 						if i < pl-1 {
@@ -81,6 +89,17 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 							// Using ' ' in value assignment so filter for text contains ''
 							filteredVal := strings.Replace(val.(string), "'", "", -1)
 							cypher += fmt.Sprintf("%s:'%s'", key, filteredVal)
+
+							switch val.(type) {
+							case string:
+								// Using ' ' in value assignment so filter for text contains ''
+								filteredVal := strings.Replace(val.(string), "'", "", -1)
+								cypher += fmt.Sprintf("%s: '%s'", key, filteredVal)
+							case float64:
+								cypher += fmt.Sprintf("%s: %d", key, int(val.(float64)))
+							case bool:
+								cypher += fmt.Sprintf("%s: %v", key, val.(bool))
+							}
 
 							// skip comma for last property
 							if i != len-1 {

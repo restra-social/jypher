@@ -6,7 +6,8 @@ import (
 	"github.com/restra-social/jypher/models"
 	"reflect"
 	"regexp"
-	"strings"
+	"go/types"
+	"errors"
 )
 
 const (
@@ -16,21 +17,21 @@ const (
 // Jypher struct
 type Jypher struct {
 	Tree         []string
-	MainNode     string
 	ParentNode   models.EntityInfo
+	ConnectionNode models.EntityInfo
 	ObjIteration int
 }
 
 // GetJypher build Object , Init method mostly
 func (j *Jypher) GetJypher(jsonInfo models.JSONInfo) map[string]models.Graph {
 	decodedGraph := map[string]models.Graph{}
-
-	j.ParentNode = models.EntityInfo{
-		Name: jsonInfo.Master,
-		ID:   jsonInfo.ID,
-	}
 	j.ObjIteration = 0
-	j.MainNode = jsonInfo.Master
+
+	// Remove Skipable field
+	// #todo implement nested skipable like time.wednesday
+	for _, skip := range jsonInfo.Rules.SkipField {
+		 delete(jsonInfo.DecodedJSON, skip)
+	}
 
 	j.generateGraph(j.ParentNode, jsonInfo.DecodedJSON, jsonInfo.Rules, decodedGraph)
 
@@ -45,7 +46,7 @@ func (j *Jypher) BuildCypher(decodedGraph map[string]models.Graph) []string {
 	return cypher
 }
 
-func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[string]interface{}, rules models.Rules, decodedGraph map[string]models.Graph) {
+func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[string]interface{}, rules models.Rules, decodedGraph map[string]models.Graph) error{
 
 	nodeName := regexp.MustCompile(`[A-za-z]+`).FindAllString(currentNode.Name, -1)[0]
 
@@ -61,12 +62,14 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 		var g models.Graph
 		g.Nodes.Lebel = currentNode.Name
 
-		if strings.HasPrefix(j.ParentNode.Name, "type") {
+		// check if Connection Node Available
+
+		if j.ConnectionNode.ID != "" && len(j.Tree) == 0 {
 			g.Edges.Source = models.EntityInfo{
-				Name: fmt.Sprintf("%s%s", j.Tree[0], j.ParentNode.Name),
-				ID:   j.ParentNode.ID,
+				ID:   j.ConnectionNode.ID,
+				Name: j.ConnectionNode.Name,
 			}
-		} else {
+		}else {
 			g.Edges.Source = models.EntityInfo{
 				ID:   j.ParentNode.ID,
 				Name: j.ParentNode.Name,
@@ -85,14 +88,6 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 
 		for field, value := range decodedJSON {
 
-			var val string
-			switch value.(type) {
-			case string:
-				val = value.(string)
-			case float64:
-				val = fmt.Sprintf("%d", int(value.(float64)))
-			}
-
 			var data map[string]interface{}
 
 			fieldValue := reflect.ValueOf(value)
@@ -100,12 +95,19 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 			switch fieldValue.Kind() {
 			case reflect.String, reflect.Float64:
 				pro := map[string]interface{}{
-					field: val,
+					field: value,
 				}
 
 				g.Nodes.Properties = append(g.Nodes.Properties, pro)
 				// If nodeName coding then set code value to ID
 				if field == IdentifierField {
+					var val string
+					switch value.(type) {
+					case string:
+						val = value.(string)
+					case float64:
+						val = fmt.Sprintf("%d", int(value.(float64)))
+					}
 					g.Nodes.ID = val
 				}
 
@@ -134,7 +136,14 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 
 					case reflect.Map:
 						data, _ = object.(map[string]interface{})
-						id := fmt.Sprintf("%d", int(data[IdentifierField].(float64)))
+						var id string
+						switch data[IdentifierField].(type) {
+						case float64:
+							id = fmt.Sprintf("%d", int(data[IdentifierField].(float64)))
+							break
+						case types.Nil:
+							return errors.New(fmt.Sprintf("Id not found on Data %+v", data))
+						}
 						entityInfo := models.EntityInfo{
 							Name: fmt.Sprintf("%s%d", field, j.ObjIteration),
 							ID: id,
@@ -148,4 +157,6 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 			decodedGraph[currentNode.Name] = g
 		}
 	}
+
+	return nil
 }
