@@ -1,0 +1,156 @@
+package tests
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"github.com/restra-social/jypher/models"
+	"gopkg.in/couchbase/gocb.v1"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"testing"
+	J "github.com/restra-social/jypher"
+	bolt "github.com/johnnadratowski/golang-neo4j-bolt-driver"
+)
+
+type Response struct {
+	Code int `json:"code"`
+	Body map[string]interface{} `json:"body"`
+}
+
+type Restaurants struct {
+	ID string `json:"id"`
+}
+
+func TestRestaurantCypher(t *testing.T) {
+
+	nosql := getNoSqlConnection("139.180.219.37")
+
+	queryBuilder := gocb.NewN1qlQuery("select r.id from `restra` as r where r.`type` = 'restaurant'")
+	rows, err := nosql.ExecuteN1qlQuery(queryBuilder, nil)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	var profiles [][]byte
+
+	for k := rows.NextBytes(); k != nil; k = rows.NextBytes() {
+		profiles = append(profiles, k)
+	}
+
+	wProfiles := wrapBytes(profiles)
+
+	var ids []Restaurants
+	json.Unmarshal(wProfiles, &ids)
+
+	for _, v := range ids {
+
+		response, err := http.Get(fmt.Sprintf( "http://139.99.103.201/vendor/restaurant/%s", v.ID))
+		if err != nil {
+			fmt.Printf("%s", err)
+			os.Exit(1)
+		} else {
+
+			defer response.Body.Close()
+			contents, err := ioutil.ReadAll(response.Body)
+			if err != nil {
+				fmt.Printf("%s", err)
+				os.Exit(1)
+			}
+
+			var data Response
+			err = json.Unmarshal(contents, &data)
+			if err != nil {
+				t.Error(err.Error())
+			}
+
+			j := J.Jypher{
+				ParentNode: &models.EntityInfo{
+					Name: "restaurant",
+					ID:   v.ID,
+				},
+			}
+			jsonInfo := models.JSONInfo{
+				DecodedJSON: data.Body,
+				Rules: &models.Rules{
+					SkipField: []string{"picture"},
+				},
+			}
+			decodedGraph, err := j.GetJypher(jsonInfo)
+			if err != nil {
+				t.Error(err.Error())
+			}
+
+			cypher := j.BuildCypher(decodedGraph)
+
+			conn := getGraphConnection("66.42.59.213")
+
+			for _, v := range cypher {
+				// Start by creating a node
+				fmt.Println(v)
+				_, err := conn.ExecNeo(v, nil)
+				if err != nil {
+					panic(err.Error())
+				}
+			}
+
+		}
+	}
+}
+
+
+func getGraphConnection(ip string) bolt.Conn{
+
+	driver := bolt.NewDriver()
+	conn, _ := driver.OpenNeo(fmt.Sprintf("bolt://neo4j:restra247@%s:7687", ip))
+	//defer conn.Close()
+	return conn
+}
+
+func getNoSqlConnection(ip string) *gocb.Bucket{
+
+	cluster, err := gocb.Connect("couchbase://" + ip)
+	if err != nil {
+		msg := fmt.Sprintf("DBConnection :: Couchbase :: Cluster :: Error : %s", err.Error())
+		fmt.Println(msg)
+	}
+
+	auth := &gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "restra247",
+	}
+
+	err = cluster.Authenticate(auth)
+
+	if err != nil {
+		msg := fmt.Sprintf("DBConnection :: Couchbase :: Cluster > Auth :: Error : %s", err.Error())
+		fmt.Println(msg)
+	}
+
+	var bucket *gocb.Bucket
+
+	// It takes some time to connect to couchbase bucket thats why
+	for {
+		bucket, err = cluster.OpenBucket("restra", "")
+		if err == nil {
+			break
+		}
+		msg := fmt.Sprintf("DBConnection :: Couchbase :: Cluster > Open Bucket :: Error : %s :: trying again ...", err.Error())
+		fmt.Println(msg)
+	}
+
+	return bucket
+}
+
+func wrapBytes(data [][]byte) []byte {
+
+	var stores []byte
+	if len(data) > 1 {
+		stores = bytes.Join(data, []byte(","))
+	}
+	// Wrap in a Array
+	stores = append(stores, []byte("]")...)
+	stores = append([]byte("["), stores...)
+	return stores
+}

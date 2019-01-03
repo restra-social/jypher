@@ -135,17 +135,17 @@ func TestBuildCypher(t *testing.T) {
 	buildandExecuteCypher(unm, conn)
 }
 
-func getRules(resource string, rules map[string]models.Rules) models.Rules {
+func getRules(resource string, rules map[string]models.Rules) *models.Rules {
 	resource = strings.Title(resource)
 
 	if rule, ok := rules[resource]; ok {
-		return rule
+		return &rule
 	} else {
-		return models.Rules{}
+		return nil
 		//panic(fmt.Sprintf("Rules provided but rules for [%s] not found, check the rules dictionary", resource))
 	}
 
-	return models.Rules{}
+	return nil
 }
 
 
@@ -181,12 +181,10 @@ func buildandExecuteCypher(data map[string]interface{}, conn bolt.Conn) string {
 
 		// Start by creating a node
 		fmt.Println(v)
-		result, err := conn.ExecNeo(v, nil)
+		_, err := conn.ExecNeo(v, nil)
 		if err != nil {
 			panic(err.Error())
 		}
-		numResult, _ := result.RowsAffected()
-		fmt.Println("CREATED ROWS: ", numResult, "\n") // CREATED ROWS: 2 (per each iteration)
 
 	}
 

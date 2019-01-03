@@ -45,5 +45,5 @@ type JypherRules struct {
 // along with the resource name and id
 type JSONInfo struct {
 	DecodedJSON map[string]interface{}
-	Rules       Rules
+	Rules       *Rules
 }

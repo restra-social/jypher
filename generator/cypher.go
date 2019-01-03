@@ -87,9 +87,6 @@ func (c *CypherGenerator) Generate(id string, models map[string]models.Graph, se
 					for i, property := range k.Nodes.Properties {
 						for key, val := range property {
 							// Using ' ' in value assignment so filter for text contains ''
-							filteredVal := strings.Replace(val.(string), "'", "", -1)
-							cypher += fmt.Sprintf("%s:'%s'", key, filteredVal)
-
 							switch val.(type) {
 							case string:
 								// Using ' ' in value assignment so filter for text contains ''

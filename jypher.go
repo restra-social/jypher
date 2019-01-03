@@ -17,25 +17,33 @@ const (
 // Jypher struct
 type Jypher struct {
 	Tree         []string
-	ParentNode   models.EntityInfo
-	ConnectionNode models.EntityInfo
+	ParentNode   *models.EntityInfo
+	ConnectionNode *models.EntityInfo
 	ObjIteration int
 }
 
 // GetJypher build Object , Init method mostly
-func (j *Jypher) GetJypher(jsonInfo models.JSONInfo) map[string]models.Graph {
+func (j *Jypher) GetJypher(jsonInfo models.JSONInfo) (map[string]models.Graph, error) {
 	decodedGraph := map[string]models.Graph{}
 	j.ObjIteration = 0
 
 	// Remove Skipable field
 	// #todo implement nested skipable like time.wednesday
-	for _, skip := range jsonInfo.Rules.SkipField {
-		 delete(jsonInfo.DecodedJSON, skip)
+	if jsonInfo.Rules != nil {
+		if len(jsonInfo.Rules.SkipField) > 0 {
+			for _, skip := range jsonInfo.Rules.SkipField {
+				delete(jsonInfo.DecodedJSON, skip)
+			}
+		}
+	}
+
+	if j.ParentNode == nil {
+		return nil, errors.New("Parent Node Is Required")
 	}
 
 	j.generateGraph(j.ParentNode, jsonInfo.DecodedJSON, jsonInfo.Rules, decodedGraph)
 
-	return decodedGraph
+	return decodedGraph, nil
 }
 
 // BuildCypher : Builds Cypher Query based on Graph Object
@@ -46,14 +54,16 @@ func (j *Jypher) BuildCypher(decodedGraph map[string]models.Graph) []string {
 	return cypher
 }
 
-func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[string]interface{}, rules models.Rules, decodedGraph map[string]models.Graph) error{
+func (j *Jypher) generateGraph(currentNode *models.EntityInfo, decodedJSON map[string]interface{}, rules *models.Rules, decodedGraph map[string]models.Graph) error{
 
 	nodeName := regexp.MustCompile(`[A-za-z]+`).FindAllString(currentNode.Name, -1)[0]
 
-	if rules.Rename != nil {
-		// apply rename rules before creating a node
-		if name, ok := rules.Rename[nodeName]; ok {
-			currentNode.Name = regexp.MustCompile(`[A-za-z]+`).ReplaceAllString(currentNode.Name, name.(string))
+	if rules != nil {
+		if rules.Rename != nil {
+			// apply rename rules before creating a node
+			if name, ok := rules.Rename[nodeName]; ok {
+				currentNode.Name = regexp.MustCompile(`[A-za-z]+`).ReplaceAllString(currentNode.Name, name.(string))
+			}
 		}
 	}
 
@@ -61,13 +71,20 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 
 		var g models.Graph
 		g.Nodes.Lebel = currentNode.Name
+		g.Nodes.ID = currentNode.ID
 
 		// check if Connection Node Available
-
-		if j.ConnectionNode.ID != "" && len(j.Tree) == 0 {
-			g.Edges.Source = models.EntityInfo{
-				ID:   j.ConnectionNode.ID,
-				Name: j.ConnectionNode.Name,
+		if j.ConnectionNode != nil {
+			if j.ConnectionNode.ID != "" && len(j.Tree) == 0 {
+				g.Edges.Source = models.EntityInfo{
+					ID:   j.ConnectionNode.ID,
+					Name: j.ConnectionNode.Name,
+				}
+			}else{
+					g.Edges.Source = models.EntityInfo{
+						ID:   j.ParentNode.ID,
+						Name: j.ParentNode.Name,
+					}
 			}
 		}else {
 			g.Edges.Source = models.EntityInfo{
@@ -118,7 +135,7 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 				entityInfo := models.EntityInfo{
 					Name: field,
 				}
-				j.generateGraph(entityInfo, data, rules, decodedGraph)
+				j.generateGraph(&entityInfo, data, rules, decodedGraph)
 				// loop should reset if we found any object
 				j.ObjIteration = 0
 
@@ -149,7 +166,7 @@ func (j *Jypher) generateGraph(currentNode models.EntityInfo, decodedJSON map[st
 							ID: id,
 						}
 						j.ParentNode = currentNode
-						j.generateGraph(entityInfo, data, rules, decodedGraph)
+						j.generateGraph(&entityInfo, data, rules, decodedGraph)
 						j.ObjIteration++
 					}
 				}
